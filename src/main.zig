@@ -117,7 +117,7 @@ pub fn main() !void {
         std.os.exit(1);
     }
 
-    // EIP = 0, ESP = 0x7C00
+    // EIP = 0x7C00, ESP = 0x7C00
     var emu = try Emulator.init(allocator, MemorySize, 0x7c00, 0x7c00);
 
     var file = std.fs.cwd().openFile(args[1], .{}) catch {
