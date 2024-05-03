@@ -53,6 +53,7 @@ const Emulator = struct {
         for (0..8) |i| {
             self.instructions[0xB8 + i] = movR32Imm32;
         }
+        self.instructions[0xE9] = nearJump;
         self.instructions[0xEB] = shortJump;
     }
     pub fn movR32Imm32(self: *Self) void {
@@ -67,6 +68,12 @@ const Emulator = struct {
 
         self.eip = @bitCast(res + diff + 2);
     }
+    pub fn nearJump(self: *Self) void {
+        const diff = self.getSignCode32(1);
+        const res: i32 = @intCast(self.eip);
+
+        self.eip = @bitCast(res + diff + 5);
+    }
     pub fn getCode8(self: Self, index: usize) u8 {
         return self.memory[self.eip + index];
     }
@@ -80,6 +87,9 @@ const Emulator = struct {
             ret |= @as(u32, self.getCode8(index + i)) << @intCast(i * 8);
         }
         return ret;
+    }
+    pub fn getSignCode32(self: Self, index: usize) i32 {
+        return @bitCast(self.getCode32(index));
     }
     pub fn dumpRegisters(self: Self, writer: anytype) !void {
         for (0..@intFromEnum(Register.size)) |i| {
@@ -108,7 +118,7 @@ pub fn main() !void {
     }
 
     // EIP = 0, ESP = 0x7C00
-    var emu = try Emulator.init(allocator, MemorySize, 0x0000, 0x7c00);
+    var emu = try Emulator.init(allocator, MemorySize, 0x7c00, 0x7c00);
 
     var file = std.fs.cwd().openFile(args[1], .{}) catch {
         std.debug.print("no such file: {s}\n", .{args[1]});
@@ -118,7 +128,7 @@ pub fn main() !void {
 
     var buffered = std.io.bufferedReader(file.reader());
     var reader = buffered.reader();
-    _ = try reader.readAll(emu.memory);
+    _ = try reader.readAtLeast(emu.memory[0x7c00..], 0x200);
 
     while (emu.eip < MemorySize) {
         const code = emu.getCode8(0);
