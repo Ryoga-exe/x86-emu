@@ -1,25 +1,12 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Emulator = @This();
-
-pub const Register = enum {
-    eax,
-    ecx,
-    edx,
-    ebx,
-    esp,
-    ebp,
-    esi,
-    edi,
-    size,
-};
-
-const RegisterName = [_][]const u8{ "EAX", "ECX", "EDX", "EBX", "ESP", "EBP", "ESI", "EDI" };
+const Register = @import("register.zig").Register;
 
 usingnamespace @import("instruction.zig");
 
 // general registers
-registers: [@intFromEnum(Register.size)]u32,
+registers: [Register.len]u32,
 // EFLAGS register
 eflags: u32,
 // byte string
@@ -31,13 +18,13 @@ allocator: Allocator,
 
 pub fn init(allocator: Allocator, size: usize, eip: u32, esp: u32) !Emulator {
     var emu = Emulator{
-        .registers = [1]u32{0} ** @intFromEnum(Register.size),
+        .registers = [1]u32{0} ** Register.len,
         .eflags = 0,
         .memory = try allocator.alloc(u8, size),
         .eip = eip,
         .allocator = allocator,
     };
-    emu.registers[@intFromEnum(Register.esp)] = esp;
+    emu.registers[@intFromEnum(Register.ESP)] = esp;
     return emu;
 }
 
@@ -56,8 +43,8 @@ pub fn executeInstruction(self: *Emulator, code: u8) bool {
 }
 
 pub fn dumpRegisters(self: Emulator, writer: anytype) !void {
-    for (0..@intFromEnum(Register.size)) |i| {
-        try writer.print("{s} = {x:0>8}\n", .{ RegisterName[i], self.registers[i] });
+    for (0..Register.len) |i| {
+        try writer.print("{s} = {x:0>8}\n", .{ Register.name[i], self.registers[i] });
     }
     try writer.print("EIP = {x:0>8}\n", .{self.eip});
 }
