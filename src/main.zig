@@ -18,7 +18,6 @@ const RegisterName = [_][]const u8{ "EAX", "ECX", "EDX", "EBX", "ESP", "EBP", "E
 
 const Emulator = struct {
     const Self = @This();
-    const InstructionFn = ?*const fn (*Self) void;
 
     // general registers
     registers: [@intFromEnum(Register.size)]u32,
@@ -29,8 +28,6 @@ const Emulator = struct {
     // Program counter
     eip: u32,
 
-    instructions: [256]InstructionFn,
-
     allocator: Allocator,
 
     pub fn init(allocator: Allocator, size: usize, eip: u32, esp: u32) !Self {
@@ -39,22 +36,22 @@ const Emulator = struct {
             .eflags = 0,
             .memory = try allocator.alloc(u8, size),
             .eip = eip,
-            .instructions = [1]InstructionFn{null} ** 256,
             .allocator = allocator,
         };
         self.registers[@intFromEnum(Register.esp)] = esp;
-        self.initInstructions();
         return self;
     }
     pub fn deinit(self: *Self) void {
         self.allocator.free(self.memory);
     }
-    fn initInstructions(self: *Self) void {
-        for (0..8) |i| {
-            self.instructions[0xB8 + i] = movR32Imm32;
+    pub fn executeInstruction(self: *Self, code: usize) bool {
+        switch (code) {
+            0xB8...0xB8 + 7 => movR32Imm32(self),
+            0xE9 => nearJump(self),
+            0xEB => shortJump(self),
+            else => return false,
         }
-        self.instructions[0xE9] = nearJump;
-        self.instructions[0xEB] = shortJump;
+        return true;
     }
     pub fn movR32Imm32(self: *Self) void {
         const reg = self.getCode8(0) - 0xB8;
@@ -136,10 +133,7 @@ pub fn main() !void {
         try stdout.print("EIP = {X}, Code = {X:0>2}\n", .{ emu.eip, code });
         try bw.flush();
 
-        if (emu.instructions[code]) |instruction| {
-            // execute an instruction
-            instruction(&emu);
-        } else {
+        if (!emu.executeInstruction(code)) {
             try stdout.print("\n\nNot Implemented: {x}\n", .{code});
             try bw.flush();
             break;
